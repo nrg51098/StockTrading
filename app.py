@@ -23,7 +23,25 @@ if st.button("Fetch & Compute"):
         df[f"SMA_9"] = df[col_choice].rolling(9, min_periods=9).mean()
 
         st.subheader("Data (tail)")
-        st.dataframe(df[[col_choice, "SMA_5", "SMA_9"]].tail(20))
+        def highlight_row(row):
+            try:
+                price = float(row[col_choice])
+                sma5 = float(row["SMA_5"])
+                sma9 = float(row["SMA_9"])
+            except (KeyError, ValueError, TypeError):
+                return [""] * len(row)
+            if pd.isna(sma5) or pd.isna(sma9) or pd.isna(price):
+                return [""] * len(row)
+            if sma5 > sma9 and price > sma5:
+                return ["background-color: #c6efce"] * len(row)  # green
+            elif sma5 < sma9 and price < sma5:
+                return ["background-color: #ffc7ce"] * len(row)  # red
+            else:
+                return [""] * len(row)
+
+        df_tail = df[[col_choice, "SMA_5", "SMA_9"]].tail(20)
+        styled_df = df_tail.style.apply(highlight_row, axis=1)
+        st.dataframe(styled_df)
 
         base = alt.Chart(df.reset_index()).encode(x="Date:T")
         line_price = base.mark_line(color="#1f77b4").encode(y=alt.Y(f"{col_choice}:Q", title="Price"))
