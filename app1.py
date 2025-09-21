@@ -45,8 +45,15 @@ def calculate_metrics(data):
 
 # Add simple moving average (SMA) and exponential moving average (EMA) indicators
 def add_technical_indicators(data):
-    data['SMA_20'] = ta.trend.sma_indicator(data['Close'], window=20)
-    data['EMA_20'] = ta.trend.ema_indicator(data['Close'], window=20)
+    # Ensure 'Close' is a 1D Series
+    close = data['Close']
+    if isinstance(close, pd.DataFrame) or (hasattr(close, 'ndim') and close.ndim > 1):
+        close = close.squeeze()
+    data['SMA_20'] = ta.trend.sma_indicator(close, window=20)
+    data['EMA_20'] = ta.trend.ema_indicator(close, window=20)
+    # Ensure columns are float, not Series or object
+    data['SMA_20'] = pd.to_numeric(data['SMA_20'], errors='coerce')
+    data['EMA_20'] = pd.to_numeric(data['EMA_20'], errors='coerce')
     return data
 
 ###############################################
@@ -87,14 +94,20 @@ if st.sidebar.button('Update'):
     data = add_technical_indicators(data)
     
     last_close, change, pct_change, high, low, volume = calculate_metrics(data)
-    
+    # Ensure all are Python floats
+    last_close = float(last_close)
+    change = float(change)
+    pct_change = float(pct_change)
     # Display main metrics
     st.metric(label=f"{ticker} Last Price", value=f"{last_close:.2f} USD", delta=f"{change:.2f} ({pct_change:.2f}%)")
     
     col1, col2, col3 = st.columns(3)
+    high = float(high)
+    low = float(low)
+    volume = float(volume)
     col1.metric("High", f"{high:.2f} USD")
     col2.metric("Low", f"{low:.2f} USD")
-    col3.metric("Volume", f"{volume:,}")
+    col3.metric("Volume", f"{volume:,.0f}")
     
     # Plot the stock price chart
     fig = go.Figure()
@@ -126,7 +139,11 @@ if st.sidebar.button('Update'):
     st.dataframe(data[['Datetime', 'Open', 'High', 'Low', 'Close', 'Volume']])
     
     st.subheader('Technical Indicators')
-    st.dataframe(data[['Datetime', 'SMA_20', 'EMA_20']])
+    tech_df = data[['Datetime', 'SMA_20', 'EMA_20']].copy()
+    # Convert all columns except 'Datetime' to float (if not already)
+    for col in ['SMA_20', 'EMA_20']:
+        tech_df[col] = pd.to_numeric(tech_df[col], errors='coerce')
+    st.dataframe(tech_df)
 
 
 # 2C: SIDEBAR PRICES ############
@@ -138,10 +155,11 @@ for symbol in stock_symbols:
     real_time_data = fetch_stock_data(symbol, '1d', '1m')
     if not real_time_data.empty:
         real_time_data = process_data(real_time_data)
-        last_price = real_time_data['Close'].iloc[-1]
-        change = last_price - real_time_data['Open'].iloc[0]
-        pct_change = (change / real_time_data['Open'].iloc[0]) * 100
-        st.sidebar.metric(f"{symbol}", f"{last_price:.2f} USD", f"{change:.2f} ({pct_change:.2f}%)")
+    last_price = float(real_time_data['Close'].iloc[-1])
+    open_price = float(real_time_data['Open'].iloc[0])
+    change = last_price - open_price
+    pct_change = (change / open_price) * 100 if open_price != 0 else 0.0
+    st.sidebar.metric(f"{symbol}", f"{last_price:.2f} USD", f"{change:.2f} ({pct_change:.2f}%)")
 
 # Sidebar information section
 st.sidebar.subheader('About')
