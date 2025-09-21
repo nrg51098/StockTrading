@@ -51,13 +51,7 @@ print(data_testing.shape)
 from sklearn.preprocessing import MinMaxScaler  
 scaler = MinMaxScaler(feature_range=(0,1))
 data_training_array = scaler.fit_transform(data_training)
-
-x_test = []
-y_test = []
-x_test, y_test = np.array(x_test), np.array(y_test)
-y_predicted = model.predict(x_test)
-y_predicted = y_predicted * scale_factor
-y_test = y_test * scale_factor  
+ 
 
 # Load the model with error handling
 try:
